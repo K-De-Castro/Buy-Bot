@@ -1,15 +1,25 @@
 import settings
-import search
 import requests
+import concurrent.futures
 
-class process:
-    def __init__(self, profile, item, option):
+class Process:
+    def __init__(self, profile, search_processes, option=None):
         self.profile = profile
-        self.item = item
         self.option = option
+        self.search_processes = search_processes
+
+    def add_search(self, search):
+        self.search_processes.append(search)
+
+    def remove_search(self, index):
+        self.search_processes.pop(index)
+
+    def run(self):
+        while self.search_processes:
+            for i in range(len(self.search_processes)):
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    executor.submit(self.search_processes[i].run())
 
 
-    def purchase_process(self):
 
 
-    def product_search(self):

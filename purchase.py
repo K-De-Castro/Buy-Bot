@@ -1,19 +1,33 @@
 from selenium import webdriver
+from seleniumrequests import Chrome
 import requests
 import json
 from bs4 import BeautifulSoup as soup
 import random
 import time
 
+# TODO add error handling
+
+
 def generate_cart_link(base_url, variant):
-    #generate cart link
+    # generate cart link
     link = base_url + "/cart/" + variant + ":1"
     return link
 
+
+def add_to_cart(session, base_url, variant):
+    # Add the product to cart
+    link = base_url + "/cart/add.js?quantity=1&id=" + str(variant)
+    response = session.get(link, verify=False)
+
+    # Return the response
+    return response
+
+
 def get_payment_token(checkout_info):
     # POST information to get the payment token
-    link = "https://elb.deposit.shopifycs.com/sessions"
-
+    # link = "https://elb.deposit.shopifycs.com/sessions"
+    link = "https://deposit.us.shopifycs.com/sessions"
     payload = {
         "credit_card": {
             "number": checkout_info['card_number'],
@@ -31,11 +45,11 @@ def get_payment_token(checkout_info):
     return payment_token
 
 
-def submit_customer_info(session, checkout_info, cookie_jar, base_url):
+def submit_customer_info(session, checkout_info, base_url):
     # Submit the customer info
 
     link = base_url + "//checkout.json"
-    response = session.get(link,  cookies=cookie_jar, verify=False)
+    response = session.get(link, verify=False)
 
     # getting authenticity_token
     bs = soup(response.text, "html.parser")
@@ -66,14 +80,15 @@ def submit_customer_info(session, checkout_info, cookie_jar, base_url):
         "checkout[remember_me]": "0",
         "checkout[client_details][browser_width]": "1710",
         "checkout[client_details][browser_height]": "1289",
-        "checkout[client_details][javascript_enabled]": "1",
+        "checkout[client_details][color_depth]": "24",
+        "checkout[client_details][java_enabled]": "false",
+        "checkout[client_details][browser_tz]": "360",
         "button": ""
     }
     # POST the data to the checkout URL
-    response = session.post(link, headers={'User-Agent': 'Mozilla/5.0'}, cookies=cookie_jar, data=payload, verify=False)
-
+    response2 = session.post(link, headers={'User-Agent': 'Mozilla/5.0'}, data=payload, verify=False)
     # Return the response and the checkout link
-    return (response, checkout_link, authenticity_token)
+    return (response2, checkout_link, authenticity_token)
 
 
 def get_shipping(base_url, session, checkout_info, cookie_jar):
@@ -95,117 +110,59 @@ def get_shipping(base_url, session, checkout_info, cookie_jar):
     return shipping_option
 
 
-def get_shipping2(shipping_url, session, cookies_jar, response_html, authenticity_token):
-
+def get_shipping2(shipping_url, session, response_html, authenticity_token):
+    print(shipping_url)
     bs = soup(response_html, "html.parser")
     shipping_option = bs.find("input", {"name": "checkout[shipping_rate][id]"})['value']
+
     payload = {
         "utf8": u"\u2713",
         "_method": "patch",
         "authenticity_token": authenticity_token,
+        "button": "",
         "previous_step": "shipping_method",
         "step": "payment_method",
         "checkout[shipping_rate][id]": shipping_option,
-        "checkout[client_details][browser_width]": "1710",
-        "checkout[client_details][browser_height]": "1289",
-        "checkout[client_details][color_depth]": "24",
-        "checkout[client_details][javascript_enabled]": "1",
-        "checkout[client_details][browser_tz]": "360",
-        "button": ""
     }
 
-    response = session.post(shipping_url, headers={'User-Agent': 'Mozilla/5.0'}, cookies=cookies_jar, data=payload, verify=False)
+    response = session.post(shipping_url, headers={'User-Agent': 'Mozilla/5.0'}, data=payload, verify=False)
 
-    return response
-
-
-def add_to_cart(session, base_url,  variant):
-    # Add the product to cart
-    link = base_url + "/cart/add.js?quantity=1&id=" + str(variant)
-    response = session.get(link, verify=False)
-
-    # Return the response
-    return response
+    return response, session
 
 
-def submit_payment(response, base_url, checkout_link, checkout_info):
-    chrome_path = r"C:\Users\Kevin\Desktop\Programming stuff\chromedriver.exe"
-    driver = webdriver.Chrome(chrome_path)
+def submit_payment2(response, session, checkout_link, checkout_info, payment_token):
 
-    link = checkout_link + "?step=payment_method"
+    bs = soup(response.text, "html.parser")
+    authenticity_token = bs.find("input", {"name": "authenticity_token"})['value']
+    payment_gateway = bs.find("input", {"name": "checkout[payment_gateway]"})['value']
+    price = bs.find("input", {"name": "checkout[total_price]"})['value']
 
-    # converting cookies from session to driver
-    cookies_dict = response.cookies.get_dict()
-    driver.get(base_url)
-    for cookie in cookies_dict:
-        driver.add_cookie({'name': cookie, 'value': cookies_dict[cookie]})
 
-    # opening payment page
-    driver.get(link)
+    payload = {
+        "utf8": u"\u2713",
+        "_method": "patch",
+        "authenticity_token": authenticity_token,
+        "previous_step": "payment_method",
+        "step": "",
+        "s": payment_token,
+        "checkout[payment_gateway]": payment_gateway,
+        "checkout[credit_card][vault]": "false",
+        "checkout[different_billing_address]": "false",
+        "checkout[billing_address][first_name]": checkout_info['fname'],
+        "checkout[billing_address][last_name]": checkout_info['lname'],
+        "checkout[billing_address][company]": '',
+        "checkout[billing_address][address1]": checkout_info['addy1'],
+        "checkout[billing_address][address2]": checkout_info['addy2'],
+        "checkout[billing_address][city]": checkout_info['city'],
+        "checkout[billing_address][country]": checkout_info['country'],
+        "checkout[billing_address][state]": checkout_info['state'],
+        "checkout[billing_address][zip]": checkout_info['postal_code'],
+        "checkout[billing_address][phone]": checkout_info['phone'],
+        "checkout[total_price]": price,
+        "complete": "1",
+        "checkout[client_details][browser_width]": str(random.randint(1000, 2000)),
+        "checkout[client_details][browser_height]": str(random.randint(1000, 2000)),
+        "checkout[client_details][javascript_enabled]": "1",
+        }
 
-    # adding cc number
-    driver.switch_to.frame(1)
-
-    cc_number = driver.find_element_by_xpath('//*[@id="number"]')
-
-    cc_number.send_keys(checkout_info['card_number'])
-
-    # adding cc name
-    driver.switch_to.default_content()
-    driver.switch_to.frame(2)
-
-    cc_name = driver.find_element_by_xpath('//*[@id="name"]')
-
-    cc_name.send_keys(checkout_info['cardholder'])
-
-    # adding cc experation date
-    driver.switch_to.default_content()
-    driver.switch_to.frame(3)
-
-    cc_name = driver.find_element_by_xpath('//*[@id="expiry"]')
-
-    cc_name.send_keys(checkout_info['exp_m'] + checkout_info['exp_y'])
-
-    # adding cc experation ccv
-    driver.switch_to.default_content()
-    driver.switch_to.frame(4)
-
-    cc_name = driver.find_element_by_xpath('//*[@id="verification_value"]')
-
-    cc_name.send_keys(checkout_info['cvv'])
-
-    # adding billing address
-    driver.switch_to.default_content()
-
-    different_baddress = driver.find_element_by_xpath('//*[@id="checkout_different_billing_address_true"]')
-    different_baddress.click()
-
-    # first name
-    driver.find_element_by_xpath('//*[@id="checkout_billing_address_first_name"]').send_keys(checkout_info['fname'])
-
-    # last name
-    driver.find_element_by_xpath('//*[@id="checkout_billing_address_last_name"]').send_keys(checkout_info['lname'])
-
-    # address1
-    driver.find_element_by_xpath('//*[@id="checkout_billing_address_address1"]').send_keys(checkout_info['addy1'])
-
-    # address2
-    driver.find_element_by_xpath('//*[@id="checkout_billing_address_address2"]').send_keys(checkout_info['addy2'])
-
-    # city
-    driver.find_element_by_xpath('//*[@id="checkout_billing_address_city"]').send_keys(checkout_info['city'])
-
-    # country
-    driver.find_element_by_xpath('//*[@id="checkout_billing_address_country"]/option[1]').click()
-
-    # state
-    driver.find_element_by_xpath('//*[@id="checkout_billing_address_province"]/option[8]').click()
-
-    # zipcode
-    driver.find_element_by_xpath('//*[@id="checkout_billing_address_zip"]').send_keys(checkout_info['postal_code'])
-
-    # submit
-    driver.find_element_by_xpath('//*[@id="continue_button"]').click()
-
-    while "thank_you" not in driver.current_url:
-        time.sleep(2)
+    r = session.post(response.url, headers={'User-Agent': 'Mozilla/5.0'}, data=payload, verify=False, allow_redirects=True)

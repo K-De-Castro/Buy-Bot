@@ -1,6 +1,7 @@
 import requests
 import json
 
+# TODO add error handling
 
 def get_product(session, base_url):
     url = base_url + "/products.json"
@@ -17,6 +18,7 @@ def keywords_search(products, keywords):
                 keys += 1
             if keys == len(keywords):
                 return product
+    return None
 
 
 def get_variant(product, option):
