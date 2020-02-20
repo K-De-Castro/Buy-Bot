@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Buy-Bot
 
 Currentlly able to make a complete purchase on a test shopify store.
