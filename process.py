@@ -2,6 +2,7 @@ import settings
 import requests
 import concurrent.futures
 
+
 class Process:
     def __init__(self, profile, search_processes, option=None):
         self.profile = profile

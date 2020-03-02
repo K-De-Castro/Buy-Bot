@@ -1,5 +1,7 @@
 import requests
 import json
+import queue
+
 
 # TODO add error handling
 
@@ -21,15 +23,24 @@ def keywords_search(products, keywords):
     return None
 
 
-def get_variant(product, option):
+def get_variant(product, options):
     if len(product["variants"]) == 1:
         return product["variants"][0]['id']
     else:
+        p_queue = queue.PriorityQueue()
         # Go through each variant for the product
         for variant in product["variants"]:
-            # Check if the option is found
-            if option in variant["title"]:
-                variant = str(variant["id"])
-                return variant
+            closeness = 0
+            # Check if the options is found
+            for option in product["options"]:
+                if option["name"].lowercase() in options:
+                    if variant["option%s" % option["position"]] == options[option["name"].lower()]:
+                        closeness += 1
+            if closeness == options["not_none"]:
+                return variant["id"]
+            else:
+                p_queue.put((-closeness, variant["id"]))
+        return p_queue.get()[1]
+
 
 

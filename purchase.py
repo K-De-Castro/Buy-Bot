@@ -1,9 +1,9 @@
-from selenium import webdriver
-from seleniumrequests import Chrome
+
 import requests
 import json
 from bs4 import BeautifulSoup as soup
 import random
+import control
 import time
 
 # TODO add error handling
@@ -130,39 +130,81 @@ def get_shipping2(shipping_url, session, response_html, authenticity_token):
     return response, session
 
 
-def submit_payment2(response, session, checkout_link, checkout_info, payment_token):
+def submit_payment2(response, session, checkout_link, checkout_info, payment_token, lock):
 
     bs = soup(response.text, "html.parser")
     authenticity_token = bs.find("input", {"name": "authenticity_token"})['value']
     payment_gateway = bs.find("input", {"name": "checkout[payment_gateway]"})['value']
     price = bs.find("input", {"name": "checkout[total_price]"})['value']
 
+    if control.can_purchase(float(price)/100, lock):
+        payload = {
+            "utf8": u"\u2713",
+            "_method": "patch",
+            "authenticity_token": authenticity_token,
+            "previous_step": "payment_method",
+            "step": "",
+            "s": payment_token,
+            "checkout[payment_gateway]": payment_gateway,
+            "checkout[credit_card][vault]": "false",
+            "checkout[different_billing_address]": "false",
+            "checkout[billing_address][first_name]": checkout_info['fname'],
+            "checkout[billing_address][last_name]": checkout_info['lname'],
+            "checkout[billing_address][company]": '',
+            "checkout[billing_address][address1]": checkout_info['addy1'],
+            "checkout[billing_address][address2]": checkout_info['addy2'],
+            "checkout[billing_address][city]": checkout_info['city'],
+            "checkout[billing_address][country]": checkout_info['country'],
+            "checkout[billing_address][state]": checkout_info['state'],
+            "checkout[billing_address][zip]": checkout_info['postal_code'],
+            "checkout[billing_address][phone]": checkout_info['phone'],
+            "checkout[total_price]": price,
+            "complete": "1",
+            "checkout[client_details][browser_width]": str(random.randint(1000, 2000)),
+            "checkout[client_details][browser_height]": str(random.randint(1000, 2000)),
+            "checkout[client_details][javascript_enabled]": "1",
+            }
 
-    payload = {
-        "utf8": u"\u2713",
-        "_method": "patch",
-        "authenticity_token": authenticity_token,
-        "previous_step": "payment_method",
-        "step": "",
-        "s": payment_token,
-        "checkout[payment_gateway]": payment_gateway,
-        "checkout[credit_card][vault]": "false",
-        "checkout[different_billing_address]": "false",
-        "checkout[billing_address][first_name]": checkout_info['fname'],
-        "checkout[billing_address][last_name]": checkout_info['lname'],
-        "checkout[billing_address][company]": '',
-        "checkout[billing_address][address1]": checkout_info['addy1'],
-        "checkout[billing_address][address2]": checkout_info['addy2'],
-        "checkout[billing_address][city]": checkout_info['city'],
-        "checkout[billing_address][country]": checkout_info['country'],
-        "checkout[billing_address][state]": checkout_info['state'],
-        "checkout[billing_address][zip]": checkout_info['postal_code'],
-        "checkout[billing_address][phone]": checkout_info['phone'],
-        "checkout[total_price]": price,
-        "complete": "1",
-        "checkout[client_details][browser_width]": str(random.randint(1000, 2000)),
-        "checkout[client_details][browser_height]": str(random.randint(1000, 2000)),
-        "checkout[client_details][javascript_enabled]": "1",
+        r = session.post(response.url, headers={'User-Agent': 'Mozilla/5.0'}, data=payload, verify=False, allow_redirects=True)
+    else:
+        print("not enough money")
+
+
+def debug_submit_payment(response, session, checkout_link, checkout_info, payment_token, lock):
+    bs = soup(response.text, "html.parser")
+    authenticity_token = bs.find("input", {"name": "authenticity_token"})['value']
+    payment_gateway = bs.find("input", {"name": "checkout[payment_gateway]"})['value']
+    price = bs.find("input", {"name": "checkout[total_price]"})['value']
+
+    if control.can_purchase(float(price) / 100, lock):
+        print(float(price)/100.0)
+
+        payload = {
+            "utf8": u"\u2713",
+            "_method": "patch",
+            "authenticity_token": authenticity_token,
+            "previous_step": "payment_method",
+            "step": "",
+            "s": payment_token,
+            "checkout[payment_gateway]": payment_gateway,
+            "checkout[credit_card][vault]": "false",
+            "checkout[different_billing_address]": "false",
+            "checkout[billing_address][first_name]": checkout_info['fname'],
+            "checkout[billing_address][last_name]": checkout_info['lname'],
+            "checkout[billing_address][company]": '',
+            "checkout[billing_address][address1]": checkout_info['addy1'],
+            "checkout[billing_address][address2]": checkout_info['addy2'],
+            "checkout[billing_address][city]": checkout_info['city'],
+            "checkout[billing_address][country]": checkout_info['country'],
+            "checkout[billing_address][state]": checkout_info['state'],
+            "checkout[billing_address][zip]": checkout_info['postal_code'],
+            "checkout[billing_address][phone]": checkout_info['phone'],
+            "checkout[total_price]": price,
+            "complete": "1",
+            "checkout[client_details][browser_width]": str(random.randint(1000, 2000)),
+            "checkout[client_details][browser_height]": str(random.randint(1000, 2000)),
+            "checkout[client_details][javascript_enabled]": "1",
         }
+    else:
+        print("not enough money")
 
-    r = session.post(response.url, headers={'User-Agent': 'Mozilla/5.0'}, data=payload, verify=False, allow_redirects=True)
