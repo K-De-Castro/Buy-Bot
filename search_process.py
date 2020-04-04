@@ -8,7 +8,7 @@ from settings import delay
 
 
 class Searchprocess:
-    def __init__(self, url, item_words, option=None):
+    def __init__(self, url, item_words, lock, option=None):
         self.base_url = url
         self.id = random.seed
         self.keywords = [item_words]

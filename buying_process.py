@@ -29,7 +29,6 @@ class Buyingprocess:
         time.sleep(delay)
         # payment token
         payment_token = purchase.get_payment_token(self.profile)
-        print(1)
         print(str(self.id) +": " + str(payment_token))
         # submitting payment
         if debug:

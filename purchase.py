@@ -28,10 +28,11 @@ def get_payment_token(checkout_info):
     # POST information to get the payment token
     # link = "https://elb.deposit.shopifycs.com/sessions"
     link = "https://deposit.us.shopifycs.com/sessions"
+    print(checkout_info)
     payload = {
         "credit_card": {
             "number": checkout_info['card_number'],
-            "name": checkout_info['cardholder'],
+            "name": checkout_info['card_holder'],
             "month": checkout_info['exp_m'],
             "year": checkout_info['exp_y'],
             "verification_value": checkout_info['cvv']
@@ -76,7 +77,7 @@ def submit_customer_info(session, checkout_info, base_url):
         "checkout[shipping_address][country]": checkout_info['country'],
         "checkout[shipping_address][province]": checkout_info['state'],
         "checkout[shipping_address][zip]": checkout_info['postal_code'],
-        "checkout[shipping_address][phone]": checkout_info['phone'],
+        "checkout[shipping_address][phone]": checkout_info['phone_number'],
         "checkout[remember_me]": "0",
         "checkout[client_details][browser_width]": "1710",
         "checkout[client_details][browser_height]": "1289",
@@ -124,19 +125,16 @@ def get_shipping2(shipping_url, session, response_html, authenticity_token):
         "step": "payment_method",
         "checkout[shipping_rate][id]": shipping_option,
     }
-
     response = session.post(shipping_url, headers={'User-Agent': 'Mozilla/5.0'}, data=payload, verify=False)
 
     return response, session
 
 
 def submit_payment2(response, session, checkout_link, checkout_info, payment_token, lock):
-
     bs = soup(response.text, "html.parser")
     authenticity_token = bs.find("input", {"name": "authenticity_token"})['value']
     payment_gateway = bs.find("input", {"name": "checkout[payment_gateway]"})['value']
     price = bs.find("input", {"name": "checkout[total_price]"})['value']
-
     if control.can_purchase(float(price)/100, lock):
         payload = {
             "utf8": u"\u2713",
@@ -157,14 +155,13 @@ def submit_payment2(response, session, checkout_link, checkout_info, payment_tok
             "checkout[billing_address][country]": checkout_info['country'],
             "checkout[billing_address][state]": checkout_info['state'],
             "checkout[billing_address][zip]": checkout_info['postal_code'],
-            "checkout[billing_address][phone]": checkout_info['phone'],
+            "checkout[billing_address][phone]": checkout_info['phone_number'],
             "checkout[total_price]": price,
             "complete": "1",
             "checkout[client_details][browser_width]": str(random.randint(1000, 2000)),
             "checkout[client_details][browser_height]": str(random.randint(1000, 2000)),
             "checkout[client_details][javascript_enabled]": "1",
             }
-
         r = session.post(response.url, headers={'User-Agent': 'Mozilla/5.0'}, data=payload, verify=False, allow_redirects=True)
     else:
         print("not enough money")
